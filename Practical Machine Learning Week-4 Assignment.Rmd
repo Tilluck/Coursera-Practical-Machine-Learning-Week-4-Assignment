@@ -1,0 +1,105 @@
+---
+title: "Coursera Practical Machine Learning Week-4 Assignment"
+author: "Shawn"
+date: "2/11/2022"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Introduction
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here:
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+```{r}
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(rattle)
+library(randomForest)
+library(gbm)
+```
+# Reading CSVs
+```{r}
+training_set<- read.csv("pml-training.csv")
+testing_set<- read.csv("pml-testing.csv")
+```
+# Cleaning the Data
+```{r, results='hide'}
+nearZeroVar <- nearZeroVar(training_set)
+train_data <- training_set[,-nearZeroVar]
+test_data <- testing_set[,-nearZeroVar]
+str(test_data)
+```
+```{r, results='hide'}
+NaCols <- sapply(train_data, function(x) mean(is.na(x))) > 0.95
+train_data <- train_data[,NaCols == FALSE]
+test_data <- test_data[,NaCols == FALSE]
+str(test_data)
+```
+# Removing the first 6 non-numeric variables
+```{r, results='hide'}
+train_data <- train_data[,7:59]
+test_data <- test_data[,7:59]
+str(test_data)
+```
+# Creating testing and a validation set 60/40 split
+```{r}
+inTrain<- createDataPartition(train_data$classe, p=0.6, list=FALSE)
+training<- train_data[inTrain,]
+validating<- train_data[-inTrain,]
+dim(training)
+dim(validating)
+```
+# Runing a Decision Tree model
+```{r}
+DT_modelfit<- train(classe ~. , data=training, method= "rpart")
+fancyRpartPlot(DT_modelfit$finalModel)
+DT_prediction <- predict(DT_modelfit, validating)
+confusionMatrix(as.factor(DT_prediction), as.factor(validating$classe))
+```
+The Decision Tree Model has a low accuracy level
+
+# Running a Random Forest Model
+```{r}
+RF_modelfit <- train(classe ~ ., data = training, method = "rf", ntree = 100)
+RF_prediction<- predict(RF_modelfit, validating)
+qplot(RF_prediction,validating$classe, colour=validating$classe)
+RF_confusionMatrix<-confusionMatrix(as.factor(RF_prediction), as.factor(validating$classe))
+RF_confusionMatrix
+```
+The Random Forest Model accuracy is 99%
+
+# Running a Gradient Boosting Model
+```{r}
+gbm_modelfit<- train(classe~., data=training, method="gbm", verbose= FALSE)
+gbm_prediction<- predict(gbm_modelfit, validating)
+qplot(gbm_prediction,validating$classe, colour=validating$classe)
+gbm_confusionMatrix<-confusionMatrix(as.factor(gbm_prediction), as.factor(validating$classe))
+gbm_confusionMatrix
+```
+The Gradient Boosting Model accuracy is 96%
+
+# Conclusion
+The Random Forest model is more accurate than Gradient Boosting Model at ~ 99% accuracy.
+Expected out-of-sample error = 1 - accuracy of cross-validation testing = 0.01
+
+#Running The Random Forest model on the test data
+```{r}
+test_prediction<- predict(RF_modelfit, test_data)
+test_prediction
+```
+
+
+
+
+
